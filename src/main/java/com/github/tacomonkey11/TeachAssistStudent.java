@@ -40,8 +40,8 @@ public class TeachAssistStudent {
         Response response = client.newCall(request).execute();
         this.expirationDate = LocalDateTime.now().plusMinutes(10);
 
-        this.studentId = response.headers("Set-Cookie").stream().filter(s -> !s.contains("deleted")).collect(Collectors.toList()).get(1).replaceFirst(";.+$", "").replace("student_id=", "");
-        this.sessionToken = response.headers("Set-Cookie").stream().filter(s -> !s.contains("deleted")).collect(Collectors.toList()).get(0).replaceFirst(";.+$", "").replace("session_token=", "");
+        this.studentId = response.headers("Set-Cookie").stream().filter(s -> !s.contains("deleted")).toList().get(1).replaceFirst(";.+$", "").replace("student_id=", "");
+        this.sessionToken = response.headers("Set-Cookie").stream().filter(s -> !s.contains("deleted")).toList().get(0).replaceFirst(";.+$", "").replace("session_token=", "");
     }
 
     private boolean isAuthenticated() {
