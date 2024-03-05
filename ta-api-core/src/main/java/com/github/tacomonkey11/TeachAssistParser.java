@@ -1,8 +1,6 @@
 package com.github.tacomonkey11;
 
-import com.github.tacomonkey11.model.Course;
-import com.github.tacomonkey11.model.Evaluation;
-import com.github.tacomonkey11.model.Subject;
+import com.github.tacomonkey11.model.*;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -10,6 +8,7 @@ import org.jsoup.select.Elements;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class TeachAssistParser {
 
@@ -48,46 +47,64 @@ public class TeachAssistParser {
 
         if (v4) {
             Elements yellowBox = mainPage.select(".yellow");
+
+            //Grab the overall weights from the top of the page
             double termWeight = Double.parseDouble(yellowBox.select("h2:nth-child(1)").text().replace("Term Work {", "").replaceFirst("}.+$", ""));
             double culmWeight = Double.parseDouble(yellowBox.select("h2:nth-child(2)").text().replace("Culminating Work {", "").replaceFirst("}.+$", ""));
 
             double totalTermWeight = 0;
             double totalCulmWeight = 0;
 
+            Elements expectationTable = mainPage.select(".row > table:nth-child(4) > tbody:nth-child(1)").first().children();
+            expectationTable.remove(0);
+            expectationTable.removeIf(section -> section.childrenSize() < 3);
+
+            List<ExpectationV4> expectations = new ArrayList<>();
+
+            for (Element e : expectationTable) {
+                String description = Objects.requireNonNull(e.select("td:nth-child(1)").first()).text();
+                String markString = e.select("td:nth-child(3)").first().text();
+                double mark = 0.0;
+
+                if (markString.contains("%")) {
+                    mark = Double.parseDouble(markString.split("%")[0]);
+                    markString = markString.split("%")[1];
+                }
+                double weight = Double.parseDouble(markString.replace("(total weight: ", "").replace(" )", ""));
+
+                totalTermWeight += weight;
+
+                expectations.add(new ExpectationV4(description, mark, weight));
+            }
+
+
+            // Parse product table
+
             Elements productTable = mainPage.select(".row > table:nth-child(13) > tbody:nth-child(1)").first().children();
 
             productTable.remove(0);
 
-            List<Evaluation> evaluations = new ArrayList<>();
+            List<TermProductV4> termProducts = new ArrayList<>();
 
-            for (Element element : productTable) {
-                String evalName = element.select("td:nth-child(1)").text();
+            for (Element e : productTable) {
+                String termProductName = e.select("td:nth-child(1)").text();
+                String assignedExpectation = e.select("td:nth-child(2)").text();
+                String mark = e.select("td:nth-child(3)").text().trim();
+                double weight = 0.0;
 
-                double evalMark = 0.0;
-                double weight;
-
-                try {
-                    evalMark = Double.parseDouble(element.select("td:nth-child(3)").text()) / Double.parseDouble(element.select("td:nth-child(4)").text().replace("/", "").trim()) * 100;
-                    weight = Double.parseDouble(element.select("td:nth-child(5)").text());
-                } catch (NumberFormatException e) {
-                    Elements markTable = mainPage.select(".row > table:nth-child(4) > tbody:nth-child(1)").first().children();
-                    markTable.remove(0);
-                    markTable.removeIf(section -> section.childrenSize() < 3);
-
-                    for (Element mark : markTable) {
-                        if (mark.select("td:nth-child(1)").text().contains(element.select("td:nth-child(2)").text()))
-                            evalMark = Double.parseDouble(mark.select("td:nth-child(3)").text().split("%")[0]);
-                    }
-
-                    weight = Double.parseDouble(element.select("td:nth-child(4)").text());
+                if (e.childrenSize() == 6) {
+                    mark += e.select("td:nth-child(4)").text().trim();
+                    weight = Double.parseDouble(e.select("td:nth-child(5)").text());
+                } else {
+                    weight = Double.parseDouble(e.select("td:nth-child(4)").text());
                 }
 
-                totalTermWeight += weight;
-                evaluations.add(new Evaluation(evalName, List.of(new Evaluation.Category("Term", evalMark, weight)), true));
+                termProducts.add(new TermProductV4(termProductName, assignedExpectation, mark, weight));
+
             }
 
 
-            return new Subject(true, evaluations, 0.0, 0.0, 0.0, 0.0, termWeight, culmWeight, 0, 0, 0, 0, totalCulmWeight, totalTermWeight);
+            return new Subject(true, null, expectations, termProducts, 0.0, 0.0, 0.0, 0.0, termWeight, culmWeight, 0, 0, 0, 0, totalCulmWeight, totalTermWeight);
         } else {
 
             // Parse weighting table
@@ -214,7 +231,7 @@ public class TeachAssistParser {
 
 
 
-            return new Subject(false, evaluations, kuWeighting, tWeighting, cWeighting, aWeighting, kuWeighting + tWeighting + cWeighting + aWeighting, culmWeighting, totalKUWeight, totalTWeight, totalCWeight, totalAWeight, totalCulmWeight, totalTermWeight);
+            return new Subject(false, evaluations, null, null, kuWeighting, tWeighting, cWeighting, aWeighting, kuWeighting + tWeighting + cWeighting + aWeighting, culmWeighting, totalKUWeight, totalTWeight, totalCWeight, totalAWeight, totalCulmWeight, totalTermWeight);
         }
     }
 }

@@ -2,6 +2,7 @@ package com.github.tacomonkey11;
 
 import com.github.tacomonkey11.model.Course;
 import com.github.tacomonkey11.model.Evaluation;
+import com.github.tacomonkey11.model.ExpectationV4;
 import com.github.tacomonkey11.model.Subject;
 import okhttp3.*;
 
@@ -97,55 +98,60 @@ public class TeachAssistStudent {
         double totalCulmMark = 0.0;
 
 
-        for (Evaluation evaluation : subject.evaluations()) {
-            if (!evaluation.v4()) {
-                for (Evaluation.Category category : evaluation.categories()) {
-                    double product = category.mark() * category.weight();
-                    switch (category.name()) {
-                        case "K/U" -> totalKUMark += product;
-                        case "T" -> totalTMark += product;
-                        case "C" -> totalCMark += product;
-                        case "A" -> totalAMark += product;
-                        case "Culm" -> totalCulmMark += product;
-                    }
-                }
-            } else {
-                for (Evaluation.Category category : evaluation.categories()) {
-                    double product = category.mark() * category.weight();
-                    switch (category.name()) {
-                        case "Term" -> totalTermMark += product;
-                        case "Culm" -> totalCulmMark += product;
+        if (subject.evaluations() == null) {
+            for (ExpectationV4 e : subject.expectations()) {
+                double product = e.mark() * e.weight();
+                //TODO For now, I can just use the term marks, but I will have to adjust this for culminating in once I get access to that information.
+
+                totalTermMark+= product;
+            }
+
+            totalTermMark /= subject.totalTermWeights();
+        } else {
+            for (Evaluation evaluation : subject.evaluations()) {
+
+                if (!evaluation.v4()) {
+                    for (Evaluation.Category category : evaluation.categories()) {
+                        double product = category.mark() * category.weight();
+                        switch (category.name()) {
+                            case "K/U" -> totalKUMark += product;
+                            case "T" -> totalTMark += product;
+                            case "C" -> totalCMark += product;
+                            case "A" -> totalAMark += product;
+                            case "Culm" -> totalCulmMark += product;
+                        }
                     }
                 }
             }
-        }
 
-        if (!subject.v4()) {
-            totalKUMark /= subject.totalKUWeights();
-            totalTMark /= subject.totalTWeights();
-            totalCMark /= subject.totalCWeights();
-            totalAMark /= subject.totalAWeights();
-            HashMap<String, List<Double>> markMap = new HashMap<>();
-            markMap.put("K/U", List.of(totalKUMark, subject.kuWeighting()));
-            markMap.put("T", List.of(totalTMark, subject.tWeighting()));
-            markMap.put("C" , List.of(totalCMark, subject.cWeighting()));
-            markMap.put("A", List.of(totalAMark, subject.aWeighting()));
+            if (!subject.v4()) {
+                totalKUMark /= subject.totalKUWeights();
+                totalTMark /= subject.totalTWeights();
+                totalCMark /= subject.totalCWeights();
+                totalAMark /= subject.totalAWeights();
+                HashMap<String, List<Double>> markMap = new HashMap<>();
+                markMap.put("K/U", List.of(totalKUMark, subject.kuWeighting()));
+                markMap.put("T", List.of(totalTMark, subject.tWeighting()));
+                markMap.put("C" , List.of(totalCMark, subject.cWeighting()));
+                markMap.put("A", List.of(totalAMark, subject.aWeighting()));
 
-            markMap.values().removeIf(m -> m.get(0).isNaN());
+                markMap.values().removeIf(m -> m.get(0).isNaN());
 
-            totalTermMark = 0.0;
+                totalTermMark = 0.0;
 
-            for (List<Double> m : markMap.values()) {
-                totalTermMark += m.get(0) * 100 / markMap.values().size();
+                for (List<Double> m : markMap.values()) {
+                    totalTermMark += m.get(0) * 100 / markMap.values().size();
+                }
+
+                totalTermMark /= 100;
+                totalCulmMark /= subject.totalCulmWeights();
             }
-
-            totalTermMark /= 100;
-            totalCulmMark /= subject.totalCulmWeights();
         }
 
         if (subject.totalCulmWeights() == 0) {
             return totalTermMark;
         }
+
         return (totalTermMark * subject.termWeighting() + totalCulmMark * subject.culmWeighting()) / 100;
     }
 
