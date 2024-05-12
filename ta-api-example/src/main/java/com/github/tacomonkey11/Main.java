@@ -13,9 +13,12 @@ public class Main {
 
         for (Course course : student.getCourses()) {
             System.out.println("COURSE INFORMATION FOR " + course.name() + " (" + course.courseCode() + ")");
+            System.out.println("Open Status: " + course.isOpen());
             System.out.println("---------------------------------");
 
-            System.out.println("COURSE AVERAGE: " + student.calculateCourseAverage(student.getCourse(course.subjectId(), course.v4())));
+            if (course.isOpen()) {
+                System.out.println("COURSE AVERAGE: " + student.calculateCourseAverage(student.getCourse(course.subjectId(), course.v4())));
+            }
             System.out.println("\n\n");
         }
 
